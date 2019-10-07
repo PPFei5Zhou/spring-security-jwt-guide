@@ -9,6 +9,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Map;
 import java.util.Optional;
@@ -45,9 +46,12 @@ public class UserService {
                 .orElseThrow(() -> new UsernameNotFoundException("No user found with username " + name));
     }
 
+    public void deleteUserByUserName(String name) {
+        userRepository.deleteByUsername(name);
+    }
+
 
     public Page<User> getAllUser(int pageNum, int pageSize) {
-        Page<User> users = userRepository.findAll(PageRequest.of(pageNum, pageSize));
-        return users;
+        return userRepository.findAll(PageRequest.of(pageNum, pageSize));
     }
 }

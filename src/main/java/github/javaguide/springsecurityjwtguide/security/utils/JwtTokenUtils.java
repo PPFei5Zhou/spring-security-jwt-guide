@@ -1,15 +1,10 @@
 package github.javaguide.springsecurityjwtguide.security.utils;
 
-import com.sun.org.apache.xml.internal.security.signature.InvalidSignatureValueException;
 import github.javaguide.springsecurityjwtguide.security.constants.SecurityConstants;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
-import io.jsonwebtoken.security.SignatureException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import javax.crypto.SecretKey;
@@ -24,18 +19,6 @@ import java.util.stream.Collectors;
  */
 public class JwtTokenUtils {
 
-    /**
-     * 角色的key
-     **/
-    private static final String ROLE_CLAIMS = "rol";
-    /**
-     * 过期时间是3600秒，既是1个小时
-     */
-    private static final long EXPIRATION = 60L;
-    /**
-     * 选择了记住我之后的过期时间为7天
-     */
-    private static final long EXPIRATION_REMEMBER = 604800L;
 
     /**
      * 生成足够的安全随机密钥，以适合符合规范的签名
@@ -44,18 +27,23 @@ public class JwtTokenUtils {
     private static SecretKey secretKey = Keys.hmacShaKeyFor(apiKeySecretBytes);
 
     public static String createToken(String username, List<String> roles, boolean isRememberMe) {
-        long expiration = isRememberMe ? EXPIRATION_REMEMBER : EXPIRATION;
+        long expiration = isRememberMe ? SecurityConstants.EXPIRATION_REMEMBER : SecurityConstants.EXPIRATION;
 
         String tokenPrefix = Jwts.builder()
                 .setHeaderParam("typ", SecurityConstants.TOKEN_TYPE)
                 .signWith(secretKey, SignatureAlgorithm.HS256)
-                .claim(ROLE_CLAIMS, String.join(",", roles))
+                .claim(SecurityConstants.ROLE_CLAIMS, String.join(",", roles))
                 .setIssuer("SnailClimb")
                 .setIssuedAt(new Date())
                 .setSubject(username)
                 .setExpiration(new Date(System.currentTimeMillis() + expiration * 1000))
                 .compact();
         return SecurityConstants.TOKEN_PREFIX + tokenPrefix;
+    }
+
+    private boolean isTokenExpired(String token) {
+        Date expiredDate = getTokenBody(token).getExpiration();
+        return expiredDate.before(new Date());
     }
 
     public static String getUsernameByToken(String token) {
@@ -67,24 +55,16 @@ public class JwtTokenUtils {
      */
     public static List<SimpleGrantedAuthority> getUserRolesByToken(String token) {
         String role = (String) getTokenBody(token)
-                .get(ROLE_CLAIMS);
+                .get(SecurityConstants.ROLE_CLAIMS);
         return Arrays.stream(role.split(","))
                 .map(SimpleGrantedAuthority::new)
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Token是否过期
-     */
-    public static boolean isExpiration(String token) {
-        return getTokenBody(token).getExpiration().before(new Date());
-    }
-
     private static Claims getTokenBody(String token) {
-        Claims claims = Jwts.parser()
+        return Jwts.parser()
                 .setSigningKey(secretKey)
                 .parseClaimsJws(token)
                 .getBody();
-        return claims;
     }
 }
